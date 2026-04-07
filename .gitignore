@@ -1,0 +1,59 @@
+# Binaries
+bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Go test binary
+*.test
+*.out
+
+
+
+# Vendor
+vendor/
+
+# Environment
+.env
+*.env.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Generated protobuf files (regenerate with make proto)
+**/*.pb.go
+**/*_grpc.pb.go
+
+# Node modules
+node_modules/
+.next/
+frontend/.next/
+frontend/out/
+
+# Build artifacts
+dist/
+build/
+
+# Logs
+*.log
+logs/
+
+# Docker
+.docker/
+
+# Coverage
+coverage/
+coverage.out
+coverage.html
+
+# Air (live reload)
+tmp/
+
+# Migrations (keep, don't ignore)
+# !**/migrations/*.sql

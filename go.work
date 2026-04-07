@@ -1,0 +1,13 @@
+go 1.22
+
+use (
+	./pkg
+	./api-gateway
+	./auth-service
+	./user-service
+	./product-service
+	./order-service
+	./inventory-service
+	./payment-service
+	./notification-service
+)
