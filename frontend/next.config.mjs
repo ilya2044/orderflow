@@ -8,10 +8,17 @@ const nextConfig = {
     ],
   },
   async rewrites() {
+    const apiGateway = process.env.API_GATEWAY_URL || "http://localhost:8080";
+    // In Docker the internal MinIO host is "minio", locally it is "localhost"
+    const minioInternal = process.env.MINIO_INTERNAL_URL || "http://localhost:9000";
     return [
       {
         source: "/api/:path*",
-        destination: `${process.env.API_GATEWAY_URL || "http://api-gateway:8080"}/api/:path*`,
+        destination: `${apiGateway}/api/:path*`,
+      },
+      {
+        source: "/storage/:path*",
+        destination: `${minioInternal}/:path*`,
       },
     ];
   },

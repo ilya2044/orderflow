@@ -3,13 +3,13 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { Search, Filter, Plus, Eye, RefreshCw } from "lucide-react";
+import { Search, Filter, Eye, RefreshCw, Package } from "lucide-react";
 import { Header } from "@/components/layout/header";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { OrderStatusBadge } from "@/components/orders/order-status-badge";
-import { ordersApi, type Order } from "@/lib/api";
+import { ordersApi } from "@/lib/api";
 import { formatCurrency, formatDate, truncateId, ORDER_STATUS_MAP } from "@/lib/utils";
 import { useAuthStore } from "@/store/useStore";
 
@@ -18,9 +18,10 @@ const STATUS_FILTERS = ["all", "pending", "confirmed", "processing", "shipped", 
 export default function OrdersPage() {
   const queryClient = useQueryClient();
   const { user } = useAuthStore();
+  const isAdmin = user?.role === "admin";
   const [page, setPage] = useState(1);
   const [status, setStatus] = useState("all");
-  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["orders", { page, status }],
@@ -28,12 +29,24 @@ export default function OrdersPage() {
     select: (res) => res.data,
   });
 
+  // Fetch full order (with items) when user opens detail modal
+  const { data: fullOrder, isLoading: orderLoading } = useQuery({
+    queryKey: ["order", selectedOrderId],
+    queryFn: () => ordersApi.get(selectedOrderId!),
+    enabled: !!selectedOrderId,
+    select: (res) => res.data.data,
+  });
+
   const updateStatusMutation = useMutation({
     mutationFn: ({ id, newStatus }: { id: string; newStatus: string }) =>
       ordersApi.updateStatus(id, newStatus),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["orders"] });
-      setSelectedOrder(null);
+      queryClient.refetchQueries({ queryKey: ["orders"], type: "active" });
+      // Invalidate detail cache so it re-fetches on next open
+      if (selectedOrderId) {
+        queryClient.invalidateQueries({ queryKey: ["order", selectedOrderId] });
+      }
+      setSelectedOrderId(null);
     },
   });
 
@@ -102,7 +115,7 @@ export default function OrdersPage() {
                     <p className="text-xs text-muted-foreground truncate max-w-[200px]">{order.shipping_address}</p>
                   </div>
                   <div className="col-span-2">
-                    <p className="text-sm">{order.items?.length ?? 0} шт.</p>
+                    <p className="text-sm">{order.items?.length ?? "—"}</p>
                   </div>
                   <div className="col-span-2">
                     <OrderStatusBadge status={order.status} />
@@ -112,18 +125,21 @@ export default function OrdersPage() {
                       variant="ghost"
                       size="icon"
                       className="h-8 w-8"
-                      onClick={() => setSelectedOrder(order)}
+                      onClick={() => setSelectedOrderId(order.id)}
                     >
                       <Eye className="w-3.5 h-3.5" />
                     </Button>
-                    {user?.role === "admin" && order.status === "pending" && (
+                    {isAdmin && order.status === "pending" && (
                       <Button
                         variant="ghost"
                         size="sm"
                         className="h-8 text-xs text-green-500 hover:text-green-400 hover:bg-green-500/10"
+                        disabled={updateStatusMutation.isPending}
                         onClick={() => updateStatusMutation.mutate({ id: order.id, newStatus: "confirmed" })}
                       >
-                        Подтвердить
+                        {updateStatusMutation.isPending && updateStatusMutation.variables?.id === order.id
+                          ? "..."
+                          : "Подтвердить"}
                       </Button>
                     )}
                   </div>
@@ -159,46 +175,99 @@ export default function OrdersPage() {
           </div>
         )}
 
-        {selectedOrder && (
+        {selectedOrderId && (
           <div
             className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"
-            onClick={() => setSelectedOrder(null)}
+            onClick={() => setSelectedOrderId(null)}
           >
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
-              className="bg-card border border-border rounded-xl p-6 w-full max-w-lg shadow-xl"
+              className="bg-card border border-border rounded-xl p-6 w-full max-w-lg shadow-xl max-h-[90vh] overflow-y-auto"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="flex items-start justify-between mb-4">
-                <div>
-                  <h2 className="text-lg font-semibold">Заказ #{truncateId(selectedOrder.id)}</h2>
-                  <p className="text-sm text-muted-foreground">{formatDate(selectedOrder.created_at)}</p>
+              {orderLoading || !fullOrder ? (
+                <div className="flex items-center justify-center py-12">
+                  <RefreshCw className="w-5 h-5 animate-spin text-muted-foreground" />
                 </div>
-                <OrderStatusBadge status={selectedOrder.status} />
-              </div>
-              <div className="space-y-3">
-                <div className="bg-muted/50 rounded-lg p-3">
-                  <p className="text-xs text-muted-foreground mb-1">Адрес доставки</p>
-                  <p className="text-sm">{selectedOrder.shipping_address}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground mb-2">Товары</p>
-                  {(selectedOrder.items ?? []).map((item) => (
-                    <div key={item.id} className="flex justify-between text-sm py-1.5 border-b border-border last:border-0">
-                      <span>{item.product_name} × {item.quantity}</span>
-                      <span className="font-medium">{formatCurrency(item.price * item.quantity)}</span>
+              ) : (
+                <>
+                  <div className="flex items-start justify-between mb-4">
+                    <div>
+                      <h2 className="text-lg font-semibold">Заказ #{truncateId(fullOrder.id)}</h2>
+                      <p className="text-sm text-muted-foreground">{formatDate(fullOrder.created_at)}</p>
                     </div>
-                  ))}
-                </div>
-                <div className="flex justify-between font-semibold text-base pt-2">
-                  <span>Итого</span>
-                  <span>{formatCurrency(selectedOrder.total_price)}</span>
-                </div>
-              </div>
-              <Button className="w-full mt-4" variant="outline" onClick={() => setSelectedOrder(null)}>
-                Закрыть
-              </Button>
+                    <OrderStatusBadge status={fullOrder.status} />
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="bg-muted/50 rounded-lg p-3">
+                      <p className="text-xs text-muted-foreground mb-1">Адрес доставки</p>
+                      <p className="text-sm">{fullOrder.shipping_address}</p>
+                    </div>
+
+                    {fullOrder.notes && (
+                      <div className="bg-muted/50 rounded-lg p-3">
+                        <p className="text-xs text-muted-foreground mb-1">Комментарий</p>
+                        <p className="text-sm">{fullOrder.notes}</p>
+                      </div>
+                    )}
+
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-2 font-medium">Состав заказа</p>
+                      {(fullOrder.items ?? []).length === 0 ? (
+                        <div className="flex items-center gap-2 py-3 text-muted-foreground">
+                          <Package className="w-4 h-4 opacity-50" />
+                          <p className="text-sm">Нет данных о товарах</p>
+                        </div>
+                      ) : (
+                        (fullOrder.items ?? []).map((item) => (
+                          <div
+                            key={item.id}
+                            className="flex justify-between items-center text-sm py-2 border-b border-border last:border-0"
+                          >
+                            <div>
+                              <p className="font-medium">{item.product_name}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {formatCurrency(item.price)} × {item.quantity} шт.
+                              </p>
+                            </div>
+                            <span className="font-semibold">
+                              {formatCurrency(item.price * item.quantity)}
+                            </span>
+                          </div>
+                        ))
+                      )}
+                    </div>
+
+                    <div className="flex justify-between font-semibold text-base pt-2 border-t border-border">
+                      <span>Итого</span>
+                      <span>{formatCurrency(fullOrder.total_price)}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3 mt-4">
+                    {isAdmin && fullOrder.status === "pending" && (
+                      <Button
+                        className="flex-1 bg-green-600 hover:bg-green-500 text-white"
+                        disabled={updateStatusMutation.isPending}
+                        onClick={() =>
+                          updateStatusMutation.mutate({ id: fullOrder.id, newStatus: "confirmed" })
+                        }
+                      >
+                        {updateStatusMutation.isPending ? "Обновление..." : "Подтвердить заказ"}
+                      </Button>
+                    )}
+                    <Button
+                      className="flex-1"
+                      variant="outline"
+                      onClick={() => setSelectedOrderId(null)}
+                    >
+                      Закрыть
+                    </Button>
+                  </div>
+                </>
+              )}
             </motion.div>
           </div>
         )}

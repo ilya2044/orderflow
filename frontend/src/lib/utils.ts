@@ -52,3 +52,14 @@ export const PAYMENT_STATUS_MAP: Record<string, { label: string; color: string }
 export function truncateId(id: string, length = 8): string {
   return id.slice(0, length).toUpperCase();
 }
+
+/**
+ * Rewrites MinIO internal URLs (http://minio:9000/... or http://localhost:9000/...)
+ * to the Next.js proxy path /storage/... so the browser can load them.
+ */
+export function getImageUrl(url: string | undefined | null): string | null {
+  if (!url) return null;
+  return url
+    .replace(/^http:\/\/minio:\d+/, "/storage")
+    .replace(/^http:\/\/localhost:9000/, "/storage");
+}

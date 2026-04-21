@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import {
   AreaChart, Area, BarChart, Bar, LineChart, Line,
@@ -8,6 +10,7 @@ import {
 import { Header } from "@/components/layout/header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { formatCurrency } from "@/lib/utils";
+import { useAuthStore } from "@/store/useStore";
 
 const monthlyData = [
   { month: "Янв", revenue: 198000, orders: 49, users: 23 },
@@ -32,6 +35,17 @@ const hourlyData = Array.from({ length: 24 }, (_, h) => ({
 }));
 
 export default function AnalyticsPage() {
+  const router = useRouter();
+  const { user } = useAuthStore();
+
+  useEffect(() => {
+    if (user && user.role !== "admin") {
+      router.replace("/");
+    }
+  }, [user, router]);
+
+  if (!user || user.role !== "admin") return null;
+
   return (
     <div className="flex flex-col">
       <Header title="Аналитика" description="Детальная статистика и метрики" />

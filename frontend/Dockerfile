@@ -14,6 +14,9 @@ COPY . .
 
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
+# These are baked into the Next.js routes-manifest at build time
+ENV API_GATEWAY_URL=http://api-gateway:8080
+ENV MINIO_INTERNAL_URL=http://minio:9000
 
 RUN npm run build
 

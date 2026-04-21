@@ -26,9 +26,9 @@ const navItems = [
   { href: "/orders", icon: ShoppingCart, label: "Заказы" },
   { href: "/products", icon: Package, label: "Товары" },
   { href: "/users", icon: Users, label: "Пользователи", adminOnly: true },
-  { href: "/payments", icon: CreditCard, label: "Платежи" },
+  { href: "/payments", icon: CreditCard, label: "Платежи", adminOnly: true },
   { href: "/inventory", icon: Warehouse, label: "Склад", adminOnly: true },
-  { href: "/analytics", icon: BarChart3, label: "Аналитика" },
+  { href: "/analytics", icon: BarChart3, label: "Аналитика", adminOnly: true },
 ];
 
 export function Sidebar() {

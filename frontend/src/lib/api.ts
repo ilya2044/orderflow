@@ -117,6 +117,24 @@ export const paymentsApi = {
     api.post<ApiResponse<Payment>>("/payments", data),
 };
 
+export interface Notification {
+  id: string;
+  user_id: string;
+  type: string;
+  subject: string;
+  body: string;
+  channel: string;
+  status: string;
+  created_at: string;
+}
+
+export const notificationsApi = {
+  listForUser: (userId: string) =>
+    api.get<{ success: boolean; data: Notification[] }>(`/notifications/${userId}`),
+  listForAdmin: () =>
+    api.get<{ success: boolean; data: Notification[] }>("/notifications/admin"),
+};
+
 export interface TokenPair {
   access_token: string;
   refresh_token: string;
